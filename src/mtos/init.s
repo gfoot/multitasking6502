@@ -18,8 +18,8 @@ init:
 	; ROM is no longer mapped, and LP 0 should be mapped to some RAM, but let's do that again to make sure.
 
 	stz VIA_PORTANH   ; set PID=0
-	stz $8000         ; map LP0 writes to PP0
-	stz $8100         ; map LP0 reads to PP0
+	stz PT_LP0W       ; map PID 0 LP0 writes to PP0
+	stz PT_LP0R       ; map PID 0 LP0 reads to PP0
 
 	; Change some VIA settings
 	lda #$60 : sta VIA_ACR       ; Continuous interrupts from T1, T2 counting pulses on PB6
@@ -58,14 +58,16 @@ measurepagedram:
 
 	ldx #1
 loop:
-	stx $9000 : stx $9100   ; Select this PP for reading and writing by LP 1
+	stx PT_LP1W : stx PT_LP1R   ; Select this PP for reading and writing by LP 1
 
 	; Store something nonzero in the page, and read it back to check the page has memory backing it
 	stx $1fff : cpx $1fff : bne nomemory
 
-	; Store zero in the page, and read back the marker from PP 0, to check whether the physical 
-	; memory has wrapped
-	stz $1fff : ldy $fff : beq wrapped
+	; Store zero in the page, and check it stuck
+	stz $1fff : ldy $1fff : bne nomemory
+
+	; Read back the marker from PP 0, to check whether the physical memory has wrapped
+	ldy $fff : beq wrapped
 
 	inx
 	bne loop
@@ -115,7 +117,7 @@ testpagedram:
 
 initpageloop:
 	stx zp_physpage
-	stx $9000 : stx $9100   ; select this PP for reading and writing by LP 1
+	stx PT_LP1W : stx PT_LP1R   ; select this PP for reading and writing by LP 1
 
 	stz zp_ptr
 	ldx #$10
@@ -158,7 +160,7 @@ test:
 
 testpageloop:
 	stx zp_physpage
-	stx $9000 : stx $9100   ; select this PP for reading and writing by LP 1
+	stx PT_LP1W : stx PT_LP1R   ; select this PP for reading and writing by LP 1
 
 	stz zp_ptr
 	ldx #$10
@@ -212,7 +214,7 @@ clearpagedram:
 
 initpageloop:
 	stx zp_physpage
-	stx $9000          ; select this PP for writing by LP 1
+	stx PT_LP1W        ; select this PP for writing by LP 1
 
 	stz zp_ptr
 
@@ -292,21 +294,21 @@ foundpid:
 	
 	tya
 	; PID allocation is in X
-	sta $8000,x : sta $8100,x  ; set process up to read and write this page
-	jsr mm_ref : jsr mm_ref    ; reference the page twice
+	sta PT_LP0W,x : sta PT_LP0R,x  ; set process up to read and write this page
+	jsr mm_ref : jsr mm_ref        ; reference the page twice
 
-	sta $9000 : sta $9100      ; Let us also access the page via LP1
+	sta PT_LP1W : sta PT_LP1R      ; Let us also access the page via LP1
 	
 	; Write some code into the page
-	lda #$00 : sta $1200       ; BRK
-	lda #$00 : sta $1201       ;      00
-	lda #$80 : sta $1202       ; BRA
-	lda #$fc : sta $1203       ;      -4
+	lda #$00 : sta LP1 + $200       ; BRK
+	lda #$00 : sta LP1 + $201       ;      00
+	lda #$80 : sta LP1 + $202       ; BRA
+	lda #$fc : sta LP1 + $203       ;      -4
 
 	; Write a stack frame into the page
-	lda #$02 : sta $11ff
-	lda #$00 : sta $11fe
-	php : pla : and #$fb : sta $11fd
+	lda #$02 : sta LP1 + $1ff
+	lda #$00 : sta LP1 + $1fe
+	php : pla : and #$fb : sta LP1 + $1fd
 	
 	; Set up the initial registers
 	lda #0

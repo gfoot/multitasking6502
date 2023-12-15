@@ -143,23 +143,26 @@ mm_clearpage:
 	; Clear a physical page to all zeros
 	
 	; Use LP3 for this
-	sta $b000
+	sta PT_LP3W
 
-	phx : phy
+	pha : phx : phy
 
 	stz zp_temp
-	ldy #$30 : sty zp_temp+1
+	ldx #>LP3
 
-	ldx #0
-loop:
-	stz $3000,x
-	inx
-	bne loop
+	ldy #0
+	tya
+pageloop:
+	stx zp_temp+1
+byteloop:
+	sta (zp_temp),y
 	iny
-	cpy #$40
-	bne loop
+	bne byteloop
+	inx
+	cpx #>LP4
+	bne pageloop
 
-	ply : plx
+	ply : plx : pla
 	rts
 .)
 

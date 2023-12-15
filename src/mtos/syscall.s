@@ -58,20 +58,18 @@ syscall:
 	; to read the user stack from there.  Then we'll have a user pointer to the BRK instruction,
 	; and may need to map another page to access it.
 
-	;lda zp_prevprocess : jsr printhex
-
 	ldx zp_prevprocess
-	lda $8000,x               ; read process's LP 0 mapping
-	;jsr printhex
-	sta $9100                 ; set our LP 1 read mapping to the same page
+	lda PT_LP0W,x               ; read process's LP 0 write mapping
+
+	sta PT_LP1R                 ; set our LP 1 read mapping to the same page
 
 	; Here we use "inx" so that it wraps properly and we avoid issues with SP > $FC
 	tsx
 	inx : inx : inx : inx     ; SP => X and advance it to point at the PCL from the interrupt frame
 
 	; Copy the PC to zp_ptr, subtracting 1 as we go
-	sec : lda $1100,x : sbc #1 : sta zp_ptr
-	inx : lda $1100,x : sbc #0
+	sec : lda LP1 + $100,x : sbc #1 : sta zp_ptr
+	inx : lda LP1 + $100,x : sbc #0
 
 	; If zp_ptr is in a different LP, we need to map that one now
 	cmp #$10 : bcc ismapped
@@ -89,7 +87,7 @@ a15clear:
 	sta zp_ptr2
 
 	lda (zp_ptr2)             ; Read the process's write mapping for the LP that zp_ptr is in
-	sta $9100                 ; Apply it to our LP 1 (read)
+	sta PT_LP1R               ; Apply it to our LP 1 (read)
 
 	txa                       ; Restore zp_ptr's high byte
 
