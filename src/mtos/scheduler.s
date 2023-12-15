@@ -179,7 +179,7 @@ preempted:
 	sta zp_ptr
 	lda #$80 : sta zp_ptr+1
 loop:
-	lda (zp_ptr) : cmp #$ff : bne notmappedwrite
+	lda (zp_ptr) : cmp #$ff : beq notmappedwrite
 
 	jsr mm_unref
 
@@ -187,8 +187,9 @@ loop:
 
 notmappedwrite:
 
-	inc zp_ptr+1
-	lda (zp_ptr) : cmp #$ff : bne notmappedread
+	inc zp_ptr+1  ; e.g. $8000 => $8100
+
+	lda (zp_ptr) : cmp #$ff : beq notmappedread
 
 	jsr mm_unref
 
@@ -196,8 +197,9 @@ notmappedwrite:
 
 notmappedread:
 
-	lda zp_ptr+1 : clc : adc #$0f : sta zp_ptr+1
-	bne loop
+	lda zp_ptr+1 : clc : adc #$0f : sta zp_ptr+1  ; e.g. $8100 => $9000
+
+	bne loop   ; stop when the address wraps to zero
 
 	rts
 .)
