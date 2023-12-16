@@ -25,7 +25,7 @@ burn: $(BURN)
 	xa -o $@ $< -w -M -I mtos
 
 ../bin/apps/%.bin: apps/%.s ../labels/boot.inc $(wildcard utils/*.s)
-	xa -o $@ $< -w -M -I ../labels
+	xa -o $@ $< -w -M -I ../labels -I include
 
 ../labels/%.inc: ../labels/%.labels
 	python3 ../utils/genimports.py $< $@
