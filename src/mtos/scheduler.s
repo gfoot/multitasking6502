@@ -34,6 +34,15 @@ resethandler:
 	; Switch to process 0
 	stz PID
 
+	ldx #$ff : txs
+
+	jsr printimm
+	.byte "RESET during ",0
+	lda zp_prevprocess
+	jsr printhex
+	jsr printimm
+	.byte 13,10,0
+
 	; Handle the interrupt
 	jsr irqhandler2
 
@@ -56,9 +65,10 @@ irqhandler:
 	; Switch to process 0
 	stz PID
 
-	; Is it a BRK?
-	and #$10
-	bne isbrk
+	; Is it a BRK?  We also capture the interrupt-disable bit here.  The BNE still 
+	; works because the only way we'd get here with interrupts disabled is if it was 
+	; a BRK anyway
+	and #$14 : bne isbrk
 
 	; Handle the interrupt
 	jsr irqhandler2
@@ -74,10 +84,26 @@ resume:
 	rti
 
 isbrk:
+
+	; syscalls with interrupts disabled are, broadly-speaking, not allowed.  The problem
+	; with allowing them is that the syscall enters supervisor mode which prevents the 
+	; watchdog timer from killing the process if it spends too long with interrupts 
+	; disabled.  So we take the harsher option here.  If there's ever a compelling reason
+	; to allow processes to disable interrupts, and if there's also a compelling reason
+	; why they should be allowed to make syscalls from that state, then other solutions
+	; can be considered - but this is simple and efficient.
+	and #4 : bne killit
+
 	stx var_savedx
 	jsr syscall
 	ldx var_savedx
-	bcc resume      ; resume current process if carry clear, otherwise fall through
+	bcs preempted    ; if carry was set then we should select another process to run
+	bra resume       ; resume current process if carry clear
+
+killit:
+	lda zp_prevprocess
+	jsr process_kill
+	jmp scheduler_run
 
 preempted:
 	; Save the process's context and run the scheduler.  The process's flags and return 
