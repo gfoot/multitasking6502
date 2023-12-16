@@ -36,6 +36,7 @@ kernelbottom:
 #include "syscall.s"
 #include "error.s"
 #include "mm.s"
+#include "serialfs.s"
 
 #if *>$9000
 

@@ -298,20 +298,26 @@ foundpid:
 	jsr mm_ref : jsr mm_ref        ; reference the page twice
 
 	sta PT_LP1W : sta PT_LP1R      ; Let us also access the page via LP1
-	
-	; Write some code into the page
-	lda #$00 : sta LP1 + $200       ; BRK
-	lda #$00 : sta LP1 + $201       ;      00
-	lda #$80 : sta LP1 + $202       ; BRA
-	lda #$fc : sta LP1 + $203       ;      -4
 
+	; Load code into the page
+	phx
+
+	tya                            ; A = PP number (not used at the moment)
+	ldx #$00                       ; X = low byte of target address
+	ldy #>LP1 + $200               ; Y = high byte of target address, ours is in LP1
+
+	jsr serialfs_load_imm
+	.byte "testapp", 0             ; filename of code to load
+
+	plx
+	
 	; Write a stack frame into the page
 	lda #$02 : sta LP1 + $1ff
 	lda #$00 : sta LP1 + $1fe
 	php : pla : and #$fb : sta LP1 + $1fd
 	
 	; Set up the initial registers
-	lda #0
+	txa
 	sta var_process_regs_a,x
 	sta var_process_regs_x,x
 	sta var_process_regs_y,x

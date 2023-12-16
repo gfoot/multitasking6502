@@ -66,6 +66,11 @@ def cmd_start(cmd):
 		sys.exit(1)
 
 
+def cmd_end():
+	log(2, "cmd_end()")
+	cmd_start(0)
+
+
 def cmd_address(addr):
 	log(2, "cmd_address(%04x)" % addr)
 	cmd_start(1)
@@ -103,21 +108,28 @@ def cmd_execute():
 
 
 
-def load_file(address, filename):
-	log(1, "Reading file '%s'" % filename)
+def load_file_at_addr(address, filename):
+	log(1, "Loading file %s to address %04x" % (filename, address))
+	cmd_address(address)
+
+	load_file(filename)
+
+
+def load_file(filename):
+	log(2, "Reading file '%s'" % filename)
 	with open(filename, "rb") as fp:
 		data = fp.read()
 		fp.close()
 
-	log(1, "Loading %04x bytes to address %04x...     " % (len(data), address), end="")
-	cmd_address(address)
+	log(2, "Sending %04x bytes...     " % len(data), end="")
 	for i in range(0, len(data), 256):
-		log(1, chr(8)*4 + "%04x" % i, end="")
+		log(3, chr(8)*4 + "%04x" % i, end="")
 		block = data[i:i+256]
 		if len(block) < 256:
 			block = block + bytes(256-len(block))
 		cmd_loaddata(block)
-	log(1, chr(8)*4 + "%04x" % len(data))
+	log(3, chr(8)*4 + "%04x" % len(data), end="")
+	log(2, "")
 
 
 def go(address):
@@ -181,9 +193,12 @@ def runcommand(command):
 
 	if command in cmds:
 		loadaddr, execaddr, name = cmds[command]
-		load_file(loadaddr, "../bin/apps/%s.bin" % name)
+		load_file_at_addr(loadaddr, "../bin/apps/%s.bin" % name)
 		go(execaddr)
-	
+	elif command.startswith("L"):
+		name = command[1:]
+		load_file("../bin/apps/%s.bin" % name)
+		cmd_end()
 	else:
 		log(0, "Unknown command: %s" % command)
 
