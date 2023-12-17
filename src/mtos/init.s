@@ -61,10 +61,10 @@ loop:
 	stx PT_LP1W : stx PT_LP1R   ; Select this PP for reading and writing by LP 1
 
 	; Store something nonzero in the page, and read it back to check the page has memory backing it
-	stx $1fff : cpx $1fff : bne nomemory
+	stx LP1 + $fff : cpx LP1 + $fff : bne nomemory
 
 	; Store zero in the page, and check it stuck
-	stz $1fff : ldy $1fff : bne nomemory
+	stz LP1 + $fff : ldy LP1 + $fff : bne nomemory
 
 	; Read back the marker from PP 0, to check whether the physical memory has wrapped
 	ldy $fff : beq wrapped
@@ -120,7 +120,7 @@ initpageloop:
 	stx PT_LP1W : stx PT_LP1R   ; select this PP for reading and writing by LP 1
 
 	stz zp_ptr
-	ldx #$10
+	ldx #>LP1
 
 initsubpageloop:
 	stx zp_ptr+1
@@ -163,7 +163,7 @@ testpageloop:
 	stx PT_LP1W : stx PT_LP1R   ; select this PP for reading and writing by LP 1
 
 	stz zp_ptr
-	ldx #$10
+	ldx #>LP1
 
 testsubpageloop:
 	stx zp_ptr+1
@@ -219,7 +219,7 @@ initpageloop:
 	stz zp_ptr
 
 	tya                ; first subpage to clear
-	clc : adc #$10     ; add offset to LP 1
+	clc : adc #>LP1    ; add offset to LP 1
 	tax
 
 initsubpageloop:
