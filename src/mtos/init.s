@@ -297,7 +297,7 @@ allocok:
 	ldy #>LP1 + $200               ; Y = high byte of target address, ours is in LP1
 
 	jsr serialfs_load_imm
-	.byte "testapp_getchar", 0     ; filename of code to load
+	.byte "testapp_exit", 0        ; filename of code to load
 
 	plx
 	

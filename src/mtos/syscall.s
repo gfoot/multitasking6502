@@ -23,6 +23,7 @@ syscalljumptable:
 	.word /* 01 */ syscall_yield
 	.word /* 02 */ syscall_putchar
 	.word /* 03 */ syscall_getchar
+	.word /* 04 */ syscall_exit
 
 syscalljumptablesize = *-syscalljumptable
 
@@ -55,6 +56,12 @@ syscall_getchar:
 
 	; The carry is already set if blocked, we can just return in that state
 	rts
+.)
+
+syscall_exit:
+.(
+	lda zp_prevprocess
+	jmp process_kill
 .)
 
 
