@@ -18,11 +18,13 @@
 ;   var_saveda, var_savedx, and Y may be used to return data
 ;   A and X can be clobbered
 
+.(
 
 syscalljumptable:
 	.word /* 00 */ syscall_noop
 	.word /* 01 */ syscall_yield
 	.word /* 02 */ syscall_putchar
+	.word /* 03 */ syscall_getchar
 
 syscalljumptablesize = *-syscalljumptable
 
@@ -42,12 +44,53 @@ syscall_yield:
 syscall_putchar:
 .(
 	lda var_saveda
-	jsr serialio_putchar    ; sets carry if buffer got full, which seems a good point to preempt processes
+	jsr serialio_putchar    ; sets carry if buffer got full
+
+	bcs blocked             ; try again later
+
+	rts
+.)
+
+syscall_getchar:
+.(
+	jsr serialio_getchar    ; sets carry if buffer was empty
+
+	bcs blocked             ; try again later
+
+	sta var_saveda          ; need to move this so that it gets returned to the calling process properly
 	rts
 .)
 
 
-syscall:
+blocked:
+.(
+	; Blocked syscalls rewind the user process so that the syscall is repeated next time the process is scheduled.
+	; The process is put to the back of the run queue as well.  In future these processes should be removed from 
+	; the run queue, and added back when the I/O is in a suitable state.
+
+	; The mechanism here is like in 'syscall' itself, but we go to a different depth as there's an extra
+	; return address on the stack now.
+
+	ldx zp_prevprocess
+	lda PT_LP0W,x               ; read process's LP 0 write mapping
+
+	sta PT_LP1R : sta PT_LP1W   ; set our LP 1 read and write mappings to the same page
+
+	; Here we use "inx" so that it wraps properly and we avoid issues with SP > $FC
+	tsx
+	inx : inx : inx : inx     ; SP => X and advance it to point at the PCL from the interrupt frame
+
+	; Subtract two from the PC
+	sec : lda LP1 + $100,x : sbc #2 : sta LP1 + $100,x
+	inx : lda LP1 + $100,x : sbc #0 : sta LP1 + $100,x
+
+	; Ensure the carry is set so the process gets preempted
+	sec
+	rts
+.)
+
+
+&syscall:
 .(
 	; On entry:
 	;
@@ -117,5 +160,7 @@ ismapped:
 badsyscall:
 	lsr
 	jmp error_badsyscall
+.)
+
 .)
 

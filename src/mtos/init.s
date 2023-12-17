@@ -21,6 +21,9 @@ init:
 	stz PT_LP0W       ; map PID 0 LP0 writes to PP0
 	stz PT_LP0R       ; map PID 0 LP0 reads to PP0
 
+	; Enable ACIA receive interrupts
+	lda #9 : sta ACIA_CMD
+
 	; Change some VIA settings
 	lda #$60 : sta VIA_ACR       ; Continuous interrupts from T1, T2 counting pulses on PB6
 	lda #$c0 : sta VIA_IER       ; Enable T1 interrupts for preemptive multitasking
@@ -39,9 +42,6 @@ init:
 	jsr mm_init
 	jsr scheduler_init
 
-	jsr debugspawnprocess
-	jsr debugspawnprocess
-	jsr debugspawnprocess
 	jsr debugspawnprocess
 
 	jmp scheduler_run
@@ -297,7 +297,7 @@ allocok:
 	ldy #>LP1 + $200               ; Y = high byte of target address, ours is in LP1
 
 	jsr serialfs_load_imm
-	.byte "testapp_putchar", 0     ; filename of code to load
+	.byte "testapp_getchar", 0     ; filename of code to load
 
 	plx
 	

@@ -24,7 +24,6 @@
 
 
 * = $8800
-kernelbottom:
 
 #include "defs.s"
 
@@ -36,25 +35,22 @@ kernelbottom:
 #include "syscall.s"
 #include "error.s"
 #include "mm.s"
+
+#if *>$9000
+#error overflow
+#endif
+segment8freebytes = $9000-*
+#print segment8freebytes
+
+
+.dsb $9400-*,0
+
 #include "serialfs.s"
 #include "serialio.s"
 
-#if *>$9000
-
+#if *>$a000
 #error overflow
-
 #endif
-
-
-kerneltop:
-
-kernelsize = kerneltop - kernelbottom
-
-#print kernelsize
-
-#if *>$fffa
-
-#error overflowed
-
-#endif
+segment9freebytes = $a000-*
+#print segment9freebytes
 

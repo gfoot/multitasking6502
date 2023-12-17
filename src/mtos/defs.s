@@ -9,6 +9,8 @@ zp_serial_out_tail = 8
 zp_serial_out_head = 9
 zp_runqueue_tail = 10
 zp_runqueue_head = 11
+zp_serial_in_tail = 12
+zp_serial_in_head = 13
 
 zp_temp = $80
 
@@ -61,5 +63,6 @@ var_process_regs_sp = arrays+$500
 var_pagerefcounts_lo = arrays+$600
 var_pagerefcounts_hi = arrays+$700
 var_serial_out_buffer = arrays+$800
+var_serial_in_buffer = arrays+$900
 /* max is arrays+$a00 */
 

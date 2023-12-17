@@ -182,10 +182,22 @@ irqhandler2:
 
 .(
 	; Check for serial receive interrupt
-	; lda ACIA_STAT : bpl afterserialreceive
+	lda ACIA_STAT : bpl afterserialreceive
 
-	; Handle serial receive interrupt here
+	;and #7                 ; check for errors
+	;bne ...
 
+	lda ACIA_DATA
+
+	phy
+	ldy zp_serial_in_head : iny
+	cpy zp_serial_in_tail : beq full
+	sty zp_serial_in_head
+	
+	sta var_serial_in_buffer,y
+	ply
+
+full: ; what to do about this
 afterserialreceive:
 .)
 
