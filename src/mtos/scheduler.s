@@ -7,9 +7,7 @@
 
 #define SCHEDULER_DEBUG 2
 
-.(
-
-&scheduler_init:
+scheduler_init:
 .(
 	; Install the IRQ and RESET handlers
 	lda #<resethandler : sta $fffc
@@ -24,6 +22,9 @@ initloop:
 	stz var_process_status,x
 	inx
 	bne initloop
+
+	stz zp_runqueue_head
+	stz zp_runqueue_tail
 
 	rts
 .)
@@ -116,7 +117,14 @@ preempted:
 
 	phy   ; save Y temporarily
 
-	ldy zp_prevprocess
+	lda zp_prevprocess
+
+	; Put this process at the back of the runqueue
+	ldy zp_runqueue_head
+	sta var_runqueue,y
+	iny : sty zp_runqueue_head
+
+	tay
 
 	lda var_saveda : sta var_process_regs_a,y  ; restore A's value and save it
 	txa : sta var_process_regs_x,y             ; save X's value
@@ -126,22 +134,21 @@ preempted:
 	;jmp scheduler_run
 .)
 ; fall through, do not move
-&scheduler_run:
+scheduler_run:
 .(
 	; Pick a runnable process, and restore its context
-	ldy zp_prevprocess
-	ldx #0
-loop:
-	iny
-	beq loop
-	lda var_process_status,y
-	bne found
-	inx
-	bne loop
 
-	jmp error_norunnableprocesses
+again:
+	ldy zp_runqueue_tail
+	cpy zp_runqueue_head : beq noprocesses
 
-found:
+	lda var_runqueue,y
+	iny : sty zp_runqueue_tail
+
+	; Check this process is runnable.  At the moment it's either runnable or dead, and dead processes
+	; just get skipped and left out of the queue.
+	tay : lda var_process_status,y : beq again
+
 #if SCHEDULER_DEBUG > 2
 	jsr printimm
 	.byte "scheduler: running process ",0
@@ -163,10 +170,14 @@ found:
 	lda var_saveda
 	bit ENDSUPER
 	rti
+
+noprocesses:
+	jmp error_norunnableprocesses
+
 .)
 
 
-&irqhandler2:
+irqhandler2:
 .(
 
 .(
@@ -238,7 +249,7 @@ notvia:
 
 .)
 
-&process_kill:
+process_kill:
 .(
 	; Kill a process, PID is in A
 	;
@@ -283,5 +294,44 @@ notmappedread:
 	rts
 .)
 
+process_new:
+.(
+	; Allocate a new process.  This finds a free PID and returns it in A.
+
+	phx
+
+	ldx #1   ; PID 0 is not allowed
+loop:
+	lda var_process_status,x
+	beq foundpid
+	inx
+	bne loop
+
+	jsr printimm
+	.byte "ERROR: process_new: no more process IDs", 0
+	stp
+
+foundpid:
+	txa
+	plx
+	rts
+.)
+
+
+process_addtorunqueue:
+.(
+	; Add the process in A to the run queue.  We assume it's not already there.
+	phx
+
+	ldx zp_runqueue_head
+	sta var_runqueue,x
+	inx : stx zp_runqueue_head
+
+	tax
+	lda #1 : sta var_process_status,x
+
+	txa
+	plx
+	rts
 .)
 

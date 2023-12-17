@@ -272,28 +272,18 @@ allocok:
 
 	tay    ; PP allocation in Y
 
-	; Find a spare process ID
-	ldx #1
-loop:
-	lda var_process_status,x
-	beq foundpid
-	inx
-	bne loop
+	; Allocate a process ID
+	jsr process_new
 
-	jsr printimm
-	.byte "ERROR: debugspawnprocess: no more process IDs", 0
-	stp
-
-foundpid:
-	txa
 	jsr printimm
 	.byte "debugspawnprocess: got PID ",0
 	jsr printhex
 	jsr printimm
 	.byte 13,10,0
-	
-	tya
-	; PID allocation is in X
+
+	tax    ; PID	
+	tya    ; PP
+
 	sta PT_LP0W,x : sta PT_LP0R,x  ; set process up to read and write this page
 	jsr mm_ref : jsr mm_ref        ; reference the page twice
 
@@ -326,8 +316,8 @@ foundpid:
 	sta var_process_regs_sp,x
 
 	; Set the process as runnable
-	lda #1
-	sta var_process_status,x
+	txa
+	jsr process_addtorunqueue
 
 	rts
 .)

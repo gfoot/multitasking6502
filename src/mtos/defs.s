@@ -7,6 +7,8 @@ zp_prevprocess = 6
 zp_lastphyspage = 7
 zp_serial_out_tail = 8
 zp_serial_out_head = 9
+zp_runqueue_tail = 10
+zp_runqueue_head = 11
 
 zp_temp = $80
 
@@ -40,20 +42,24 @@ LP7 = $7000
 
 ; Kernel general purpose storage
 
-vars = $f400        ; base address
+vars = $ff00        ; base address for small vars
 
 ; Small variables
 var_saveda = vars
 var_savedx = vars+1
 var_t1ch = vars+2
 
+arrays = $f400      ; base address for arrays
+
 ; Large arrays
-var_process_status = vars+$100
-var_process_regs_a = vars+$200
-var_process_regs_x = vars+$300
-var_process_regs_y = vars+$400
-var_process_regs_sp = vars+$500
-var_pagerefcounts_lo = vars+$600
-var_pagerefcounts_hi = vars+$700
-var_serial_out_buffer = vars+$800
-/* max is vars+$a00 */
+var_runqueue = arrays
+var_process_status = arrays+$100
+var_process_regs_a = arrays+$200
+var_process_regs_x = arrays+$300
+var_process_regs_y = arrays+$400
+var_process_regs_sp = arrays+$500
+var_pagerefcounts_lo = arrays+$600
+var_pagerefcounts_hi = arrays+$700
+var_serial_out_buffer = arrays+$800
+/* max is arrays+$a00 */
+
