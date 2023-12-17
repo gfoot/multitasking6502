@@ -5,6 +5,8 @@ zp_ptr2 = 2
 zp_printptr = 4
 zp_prevprocess = 6
 zp_lastphyspage = 7
+zp_serial_out_tail = 8
+zp_serial_out_head = 9
 
 zp_temp = $80
 
@@ -53,4 +55,5 @@ var_process_regs_y = vars+$400
 var_process_regs_sp = vars+$500
 var_pagerefcounts_lo = vars+$600
 var_pagerefcounts_hi = vars+$700
-
+var_serial_out_buffer = vars+$800
+/* max is vars+$a00 */

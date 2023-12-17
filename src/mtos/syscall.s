@@ -22,6 +22,7 @@
 syscalljumptable:
 	.word /* 00 */ syscall_noop
 	.word /* 01 */ syscall_yield
+	.word /* 02 */ syscall_putchar
 
 syscalljumptablesize = *-syscalljumptable
 
@@ -35,6 +36,13 @@ syscall_noop:
 syscall_yield:
 .(
 	sec
+	rts
+.)
+
+syscall_putchar:
+.(
+	lda var_saveda
+	jsr serialio_putchar    ; sets carry if buffer got full, which seems a good point to preempt processes
 	rts
 .)
 
@@ -107,6 +115,7 @@ ismapped:
 	jmp (syscalljumptable,x)
 
 badsyscall:
+	lsr
 	jmp error_badsyscall
 .)
 

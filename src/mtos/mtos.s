@@ -37,6 +37,7 @@ kernelbottom:
 #include "error.s"
 #include "mm.s"
 #include "serialfs.s"
+#include "serialio.s"
 
 #if *>$9000
 

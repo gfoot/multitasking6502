@@ -5,6 +5,8 @@
 ; Premepting takes place through IRQ.  Stubborn processes will cause a RESET, at which point we kill them.
 ; System calls are made through BRK.
 
+#define SCHEDULER_DEBUG 2
+
 .(
 
 &scheduler_init:
@@ -34,6 +36,7 @@ resethandler:
 	; Switch to process 0
 	stz PID
 
+#if SCHEDULER_DEBUG > 1
 	ldx #$ff : txs
 
 	jsr printimm
@@ -42,6 +45,7 @@ resethandler:
 	jsr printhex
 	jsr printimm
 	.byte 13,10,0
+#endif
 
 	; Handle the interrupt
 	jsr irqhandler2
@@ -129,6 +133,7 @@ preempted:
 	ldx #0
 loop:
 	iny
+	beq loop
 	lda var_process_status,y
 	bne found
 	inx
@@ -137,11 +142,13 @@ loop:
 	jmp error_norunnableprocesses
 
 found:
+#if SCHEDULER_DEBUG > 2
 	jsr printimm
 	.byte "scheduler: running process ",0
 	tya : jsr printhex
 	jsr printimm
 	.byte 13,10,0
+#endif
 
 	sty zp_prevprocess : sty PID
 
@@ -159,32 +166,76 @@ found:
 .)
 
 
-irqhandler2:
+&irqhandler2:
 .(
-	; lda ACIA_STAT : bpl notserial
 
-	; Handle serial receive interrupts here
+.(
+	; Check for serial receive interrupt
+	; lda ACIA_STAT : bpl afterserialreceive
 
-notserial:
+	; Handle serial receive interrupt here
+
+afterserialreceive:
+.)
+
+	; If it's not a VIA interrupt then skip to the end
 	lda VIA_IFR : bpl notvia
-	and VIA_IER ; ignore masked interrupts
+
+	; Apply the current mask before processing VIA interrupt sources
+	and VIA_IER
 
 	; Handle other VIA interrupts here, e.g. T2 ($20) is serial transmit interrupt
 	; CB1/CB2/SR may be used for PS/2 or SD cards
 
-	; Re-check if preempted.  Time spent in the ISR also counts against the preemption timer,
+.(
+	; Check for serial transmit interrupt (T2 on the VIA)
+	rol : rol : rol : bcc afterserialtransmit
+	
+	; Send a serial character, if the buffer is not empty; otherwise mask this interrupt source
+
+	phy
+
+	ldy zp_serial_out_tail
+	cpy zp_serial_out_head
+	beq empty
+	
+	; Increment the pointer
+	iny : sty zp_serial_out_tail
+
+	; Transfer the data byte to the serial port and restart the timer
+	lda var_serial_out_buffer,y : sta ACIA_DATA
+	stz VIA_T2CH
+
+	ply
+
+	bra afterserialtransmit
+
+empty:
+	; If the buffer is empty, disable this interrupt source without clearing the interrupt, so that
+	; next time a character is printed we can reenable it and have the interrupt fire immediately.
+	ldy #$20 : sty VIA_IER
+
+	ply
+
+afterserialtransmit:
+.)
+
+.(
+	; Last, check if preempted.  Time spent in the ISR also counts against the preemption timer,
 	; it's not easy to pause it during the ISR.
-	bit VIA_IFR : bvs preempted
+	bit VIA_IFR : bvc afterpreempted
+
+	lda #$40 : sta VIA_IFR  ; clear the interrupt
+	sec   ; a process change is needed
+	rts
+afterpreempted:
+.)
 
 notvia:
 
 	clc   ; no process change is needed
 	rts
 
-preempted:
-	lda #$40 : sta VIA_IFR  ; clear the interrupt
-	sec   ; a process change is needed
-	rts
 .)
 
 &process_kill:
@@ -193,11 +244,13 @@ preempted:
 	;
 	; We remove it from the process_status table, and free any pages it had mapped
 
+#if SCHEDULER_DEBUG > 1
 	jsr printimm
 	.byte "scheduler: killing process ",0
 	jsr printhex
 	jsr printimm
 	.byte 13,10,0
+#endif
 
 	tax
 	stz var_process_status,x

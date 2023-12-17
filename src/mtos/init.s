@@ -30,11 +30,11 @@ init:
 	sta var_t1ch
 	sta VIA_T1CH
 
-	; We could enable T2 interrupts as well, and ACIA receive interrupts, but we don't do that yet
-
 	jsr measurepagedram
 	jsr testpagedram
 	jsr clearpagedram
+
+	jsr serialio_init
 
 	jsr mm_init
 	jsr scheduler_init
@@ -307,7 +307,7 @@ foundpid:
 	ldy #>LP1 + $200               ; Y = high byte of target address, ours is in LP1
 
 	jsr serialfs_load_imm
-	.byte "testapp", 0             ; filename of code to load
+	.byte "testapp_putchar", 0     ; filename of code to load
 
 	plx
 	
