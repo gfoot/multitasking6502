@@ -99,11 +99,24 @@ isbrk:
 	; can be considered - but this is simple and efficient.
 	and #4 : bne killit
 
-	stx var_savedx
-	jsr syscall
-	ldx var_savedx
-	bcs preempted    ; if carry was set then we should select another process to run
-	bra resume       ; resume current process if carry clear
+	jsr syscall      ; dispatch the system call
+
+	bcc resume       ; resume current process if carry clear
+
+	; Carry set means the process is blocked, so we need to arrange for the syscall to repeat.
+	; We do this by reselecting the user process and adjusting its flags, which are at the
+	; top of the stack so easy to access.
+	;
+	; Syscalls are always of the form "ldx #nn : brk : brk" with 0 <= nn < 128, so as far as
+	; the flags are concerned, normally N=0.  So we can have the user code perform a BMI to
+	; repeat the syscall, and here we just need to set the N bit to trigger it.
+	
+	lda zp_prevprocess : sta PID
+	pla : ora #$80 : pha
+	stz PID ; required for later code
+
+	; We also want to preempt the process, as it can't run at the moment.
+	bra preempted
 
 killit:
 	lda zp_prevprocess

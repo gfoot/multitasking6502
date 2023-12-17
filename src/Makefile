@@ -24,7 +24,7 @@ burn: $(BURN)
 ../bin/apps/kernel.bin: apps/kernel.s $(wildcard mtos/*.s)
 	xa -o $@ $< -w -M -I mtos
 
-../bin/apps/%.bin: apps/%.s ../labels/boot.inc $(wildcard utils/*.s)
+../bin/apps/%.bin: apps/%.s ../labels/boot.inc $(wildcard utils/*.s) $(wildcard include/*.s)
 	xa -o $@ $< -w -M -I ../labels -I include
 
 ../labels/%.inc: ../labels/%.labels
