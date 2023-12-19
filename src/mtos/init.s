@@ -35,7 +35,7 @@ init:
 
 	jsr measurepagedram
 	jsr testpagedram
-	jsr clearpagedram
+	;jsr clearpagedram     ; no point in clearing memory, pages are cleared on allocation anyway
 
 	jsr serialio_init
 
@@ -97,6 +97,51 @@ wrapped:
 	rts
 .)
 
+print_4xplus4_in_k:
+.(
+	; Multiply (x+1) by 4K and print the result, then back the cursor up again to where it started.
+	; We also only do this for certain multiples, to speed things up.
+	;
+	; Clobbers A and zp_temp
+
+	txa : and #7 : eor #7 : beq doprint
+	rts
+
+doprint:
+	phx
+
+	; Add 1 and carry
+	clc
+	txa : adc #1 : sta zp_temp
+	lda #0 : rol
+
+	; Calculate the amount in K
+	asl zp_temp : rol
+	asl zp_temp : rol
+	sta zp_temp+1
+
+	; Print it in decimal
+	ldx #<zp_temp : jsr printdecu16
+
+	lda #'K' : jsr printchar
+
+	plx
+
+	lda #8 : jsr printchar : jsr printchar
+
+	dex ; so that 1024M is 255 rather than 256
+
+	cpx #1 : bcc done    ; x=3 => 12K => go back another character
+	jsr printchar
+	cpx #23 : bcc done   ; x=25 => 100K => another character
+	jsr printchar
+	cpx #248 : bcc done  ; x=250 => 1000K => another character
+	jsr printchar
+
+done:
+	inx
+	rts
+.)
 
 testpagedram:
 .(
@@ -112,11 +157,15 @@ testpagedram:
 	; We will use LP 1 throughout.
 	
 	jsr printimm
-	.byte "init",0
+	.byte "init ",0
 
 	ldx #1
 
 initpageloop:
+	lda ACIA_STAT : and #8 : bne skip
+
+	jsr print_4xplus4_in_k
+
 	stx zp_physpage
 	stx PT_LP1W : stx PT_LP1R   ; select this PP for reading and writing by LP 1
 
@@ -146,6 +195,13 @@ initbyteloop:
 	inx
 	bra initpageloop
 
+skip:
+	bit ACIA_DATA
+	jsr printimm
+	.byte 9,"skipped",13,10,0
+
+	rts
+
 initfail:
 	jsr printimm
 	.byte " initfail ",13,10,0
@@ -155,11 +211,15 @@ initfail:
 
 test:
 	jsr printimm
-	.byte ", test",0
+	.byte 8,", test ",0
 
 	ldx #1
 
 testpageloop:
+	lda ACIA_STAT : and #8 : bne skip
+
+	jsr print_4xplus4_in_k
+
 	stx zp_physpage
 	stx PT_LP1W : stx PT_LP1R   ; select this PP for reading and writing by LP 1
 
@@ -199,7 +259,7 @@ testfail:
 testcomplete:
 
 	jsr printimm
-	.byte ", OK",13,10,0
+	.byte 9,"OK",13,10,0
 
 	rts
 .)

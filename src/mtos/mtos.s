@@ -34,7 +34,6 @@
 #include "scheduler.s"
 #include "syscall.s"
 #include "error.s"
-#include "mm.s"
 
 #if *>$9000
 #error overflow
@@ -45,6 +44,7 @@ segment8freebytes = $9000-*
 
 .dsb $9400-*,0
 
+#include "mm.s"
 #include "serialfs.s"
 #include "serialio.s"
 
