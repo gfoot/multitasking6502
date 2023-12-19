@@ -26,6 +26,8 @@ initloop:
 	stz zp_runqueue_head
 	stz zp_runqueue_tail
 
+	stz var_interrupt_from_supervisor
+
 	rts
 .)
 
@@ -59,8 +61,35 @@ resethandler:
 	jmp scheduler_run
 .)
 
+superirqhandler:
+.(
+	; Special interrupt service routine for interrupting the supervisor.  We don't need to
+	; worry as much about user process state, just run the regular hardware interrupt handler 
+	; and then return.
+	;
+	; It does need to run as PID 0 though, and it's possible another process was selected 
+	; even though we were in supervisor mode, so remember the old PID before setting it to
+	; zero.
+	sta var_superirq_saveda
+
+	lda PID : sta var_superirq_saved_pid
+	stz PID
+
+	jsr irqhandler2
+
+	lda var_superirq_saved_pid : sta PID
+
+	lda var_superirq_saveda
+	rti
+.)
+
 irqhandler:
 .(
+	; Support a nested hardware interrupt within a system call - if we interrupted the 
+	; supervisor then execute a bespoke version of the handler
+	bit var_interrupt_from_supervisor
+	bmi superirqhandler
+
 	; This could be an IRQ or a BRK.  We can check the stack to find out which.
 	; There's no need to be reentrant here, but while the active process is still selected,
 	; we mustn't write to zero page or the stack.
@@ -99,7 +128,20 @@ isbrk:
 	; can be considered - but this is simple and efficient.
 	and #4 : bne killit
 
+	; We allow interrupts during system calls in general, but we need to mark that this has
+	; happened so that when the interrupt returns it leaves the system in supervisor mode.
+	; Also, disable the preempt timer interrupt now because we don't want that one to fire.
+	dec var_interrupt_from_supervisor
+	lda #$40 : sta VIA_IER
+	cli
+
 	jsr syscall      ; dispatch the system call
+
+	; Remask interrupts, re-enable the premept timer, clear the flag saying any interrupt
+	; was from supervisor mode
+	sei
+	lda #$c0 : sta VIA_IER
+	inc var_interrupt_from_supervisor
 
 	bcc resume       ; resume current process if carry clear
 

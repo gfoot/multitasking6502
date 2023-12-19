@@ -50,6 +50,9 @@ vars = $ff00        ; base address for small vars
 var_saveda = vars
 var_savedx = vars+1
 var_t1ch = vars+2
+var_interrupt_from_supervisor = vars+3
+var_superirq_saveda = vars+4
+var_superirq_saved_pid = vars+5
 
 arrays = $f400      ; base address for arrays
 
