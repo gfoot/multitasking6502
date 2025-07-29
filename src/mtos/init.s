@@ -8,18 +8,74 @@ zp_physpage = zp_temp
 
 init:
 .(
-	jsr printimm
-	.byte 13,10,"mtos kernel starting",13,10,0
-
 	; The system has already been bootstrapped to some extent, but we'll make sure some things are just the way we want them.
 
 	sei : cld : ldx #$ff : txs
 
 	; ROM is no longer mapped, and LP 0 should be mapped to some RAM, but let's do that again to make sure.
-
 	stz VIA_PORTANH   ; set PID=0
 	stz PT_LP0W       ; map PID 0 LP0 writes to PP0
 	stz PT_LP0R       ; map PID 0 LP0 reads to PP0
+
+	jsr video_init
+
+	jsr printimm
+	.byte 13,10,"mtos kernel starting",13,10,0
+
+#if 0
+
+	; Draw a rectangle, 256x240 pixels
+	WIDTH = 64
+	lda #<(LPVID+(80-WIDTH)/2) : sta zp_ptr
+	lda #>(LPVID+(80-WIDTH)/2) : sta zp_ptr+1
+	ldx #30
+loop2:
+	ldy #WIDTH-1
+	lda #$db  ; solid white block
+loop3:
+	sta (zp_ptr),y
+	dey
+	bpl loop3
+	clc
+	lda zp_ptr : adc #$80 : sta zp_ptr
+	lda zp_ptr+1 : adc #0 : sta zp_ptr+1
+	dex
+	bne loop2
+
+	; loop forever writing to private RAM
+	lda #0
+loop:
+	sta LPVID;zp_ptr;PT_LP3W
+	eor #$ff
+	bra loop
+
+#endif
+
+#if 0
+	; write the bottom half of the screen with white
+	lda #<(LPVID+15*128) : sta zp_ptr
+	lda #>(LPVID+15*128) : sta zp_ptr+1
+	ldx #15
+loop2:
+	ldy #79
+	lda #$db  ; solid white block
+loop3:
+	sta (zp_ptr),y
+	dey
+	bpl loop3
+	clc
+	lda zp_ptr : adc #$80 : sta zp_ptr
+	lda zp_ptr+1 : adc #0 : sta zp_ptr+1
+	dex
+	bne loop2
+
+	; loop forever writing to private RAM
+	lda #0
+loop:
+	sta LPVID;zp_ptr;PT_LP3W
+	eor #$ff
+	bra loop
+#endif
 
 	; Enable ACIA receive interrupts
 	lda #9 : sta ACIA_CMD
@@ -42,6 +98,8 @@ init:
 	jsr mm_init
 	jsr scheduler_init
 
+	jsr debugspawnprocess
+	jsr debugspawnprocess
 	jsr debugspawnprocess
 	jsr debugspawnprocess
 
@@ -169,6 +227,8 @@ initpageloop:
 	stx zp_physpage
 	stx PT_LP1W : stx PT_LP1R   ; select this PP for reading and writing by LP 1
 
+	cpx #$f0 : bcs initskipvideoram
+
 	stz zp_ptr
 	ldx #>LP1
 
@@ -188,6 +248,7 @@ initbyteloop:
 	inx
 	cpx #$20 : bne initsubpageloop
 
+initskipvideoram:
 	ldx zp_physpage
 	cpx zp_lastphyspage
 	beq test
@@ -223,6 +284,8 @@ testpageloop:
 	stx zp_physpage
 	stx PT_LP1W : stx PT_LP1R   ; select this PP for reading and writing by LP 1
 
+	cpx #$f0 : bcs testskipvideoram
+
 	stz zp_ptr
 	ldx #>LP1
 
@@ -242,6 +305,7 @@ testbyteloop:
 	inx
 	cpx #$20 : bne testsubpageloop
 
+testskipvideoram:
 	ldx zp_physpage
 	cpx zp_lastphyspage
 	beq testcomplete
@@ -358,7 +422,7 @@ allocok:
 	ldy #>LP1 + $200               ; Y = high byte of target address, ours is in LP1
 
 	jsr serialfs_load_imm
-	.byte "testapp_putstring", 0        ; filename of code to load
+	.byte "testapp_life", 0        ; filename of code to load
 
 	plx
 	
@@ -380,6 +444,73 @@ allocok:
 	txa
 	jsr process_addtorunqueue
 
+	rts
+.)
+
+videotest:
+.(
+	; Map video memory at LP1
+	lda #$f0 : sta PT_LP1W : sta PT_LP1R
+
+	stz zp_ptr
+	ldx #>LP1 : stx zp_ptr+1
+
+	ldx #30
+loop2:
+	ldy #0
+loop:
+	tya : and #15
+	cmp #10 : bmi skipletter
+	adc #6
+skipletter:
+	adc #48
+	cpx #16 : beq is16
+	lda #$b1
+is16:
+	sta (zp_ptr),y
+	sta (zp_ptr),y
+	
+	iny : cpy #80 : bne loop
+
+	clc : lda zp_ptr : adc #$80 : sta zp_ptr
+	lda zp_ptr+1 : adc #0 : sta zp_ptr+1
+
+	dex : bne loop2
+
+
+.)
+.(
+	; Fill the screen with each character in turn
+outerloop:
+	stz zp_temp
+frameloop:
+	stz zp_ptr
+	lda #>LP1 : sta zp_ptr+1
+	ldx #30
+rowloop:
+	ldy #79
+	lda zp_temp
+colloop:
+	sta (zp_ptr),y
+	dey : bpl colloop
+
+	clc
+	lda zp_ptr : adc #$80 : sta zp_ptr
+	lda zp_ptr+1 : adc #0 : sta zp_ptr+1
+
+	dex : bne rowloop
+
+	jsr getchar
+;	txa : tay
+;delay:
+;	dex : bne delay
+;	dey : bne delay
+;	dec : bne delay
+
+	inc zp_temp
+	bra frameloop
+
+funcend:
 	rts
 .)
 

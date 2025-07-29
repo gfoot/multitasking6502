@@ -22,7 +22,7 @@ burn: $(BURN)
 	xa -o ../bin/roms/$*.rom $< -w -M -DROMBASE=$(ROMBASE) -l ../labels/$*.labels
 
 ../bin/apps/kernel.bin: apps/kernel.s $(wildcard mtos/*.s)
-	xa -o $@ $< -w -M -I mtos
+	xa -o $@ $< -w -M -I mtos -l ../labels/kernel.labels
 
 ../bin/apps/%.bin: apps/%.s ../labels/boot.inc $(wildcard utils/*.s) $(wildcard include/*.s)
 	xa -o $@ $< -w -M -I ../labels -I include

@@ -38,6 +38,7 @@ loop:
 &printchar:
 .(
 	; Print the character in A
+	jsr video_putchar
 
 	pha
 

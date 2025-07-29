@@ -25,15 +25,32 @@ if True:
 	}
 
 
-
-if len(sys.argv) < 3:
+def usage():
 	print("Usage: %s <device> <baud>" % sys.argv[0])
 	sys.exit(1)
 
-DEVICE = sys.argv[1]
-BAUD = int(sys.argv[2])
+
+args = [x for x in sys.argv[1:] if not x.startswith("-")]
+switches = [x for x in sys.argv[1:] if x.startswith("-")]
+
+if len(args) != 2:
+	usage()
+
+DEVICE = args[0]
+BAUD = int(args[1])
+
 
 LOGLEVEL = 0
+
+for switch in switches:
+	for c in switch[1:]:
+		if c == '-':
+			continue
+		if c == 'v':
+			LOGLEVEL += 1
+			continue
+		print("Bad switch '%s'" % c)
+		usage()
 
 
 def log(level, *args, end='\n'):

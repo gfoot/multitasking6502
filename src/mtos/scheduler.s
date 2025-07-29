@@ -102,7 +102,7 @@ irqhandler:
 	; Is it a BRK?  We also capture the interrupt-disable bit here.  The BNE still 
 	; works because the only way we'd get here with interrupts disabled is if it was 
 	; a BRK anyway
-	and #$14 : bne isbrk
+	bit #$10 : bne isbrk
 
 	; Handle the interrupt
 	jsr irqhandler2

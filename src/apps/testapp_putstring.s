@@ -6,7 +6,7 @@
 entry:
 
 loop:
-	jsr delay
+	;jsr delay
 	
 	lda #<message
 	ldy #>message

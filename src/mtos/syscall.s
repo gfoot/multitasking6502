@@ -25,6 +25,7 @@ syscalljumptable:
 	.word /* 03 */ syscall_getchar
 	.word /* 04 */ syscall_exit
 	.word /* 05 */ syscall_putstring
+	.word /* 06 */ syscall_mapmemory
 
 syscalljumptablesize = *-syscalljumptable
 
@@ -62,10 +63,63 @@ syscall_getchar:
 syscall_exit:
 .(
 	lda zp_prevprocess
-	jmp process_kill
+	jsr process_kill
+	jmp scheduler_run
 .)
 
 syscall_putstring:
+.(
+	; Y = high byte of address containing string
+	; var_saveda = low byte of address containing string
+
+	ldx #16     ; Print at most this many characters per syscall
+
+pageloop:
+	; Get PT base for LP containing target address
+	tya : jsr get_prevprocess_pp_for_addr
+
+	; Write kernel's LP1 mapping to point to the same PP
+	sta PT_LP1R : sta PT_LP1W
+
+	; Read the next character, using an LP1 pointer
+	lda var_saveda : sta zp_ptr
+	tya : and #$0f : ora #>LP1 : sta zp_ptr+1
+
+byteloop:
+	lda (zp_ptr)
+	beq endofstring
+
+	; Print the character
+	jsr video_putchar
+
+	; A character was printed, so advance the pointer in the Y and A (var_saveda) registers
+	inc var_saveda : bne advanced
+	iny
+advanced:
+
+	; Have we printed too many characters already this syscall?  If so, return with carry set so we
+	; get called again
+	sec
+	dex
+	beq return
+
+	; Advance zp_ptr, and if it doesn't cross a page boundary, loop back and print another character
+	inc zp_ptr : bne byteloop
+	inc zp_ptr+1
+	lda zp_ptr+1 : cmp #>LP2 : bcc byteloop   ; loop unless it has entered LP2
+
+	; We've crossed a logical page boundary, and need to map a new page
+	bra pageloop
+
+return:
+	rts
+
+endofstring:
+	clc       ; don't call again
+	rts
+.)
+
+syscall_putstringx:
 .(
 	; Y = high byte of address containing string
 	; var_saveda = low byte of address containing string
@@ -123,6 +177,36 @@ return:
 endofstring:
 	clc       ; don't call again
 	rts
+.)
+
+
+syscall_mapmemory:
+.(
+	; saveda = page to map into
+
+	; get PT base address for this page
+	lda var_saveda
+	lsr : ror : ror : ror
+	bcc a15notset
+	ora #4
+a15notset:
+	sec
+	ror
+
+	; get ready to set the PT mapping
+	sta zp_ptr+1
+	lda zp_prevprocess : sta zp_ptr
+
+	; set write mapping
+	lda #$f0 : sta (zp_ptr)
+
+	; set read mapping
+	lda zp_ptr+1 : ora #1 : sta zp_ptr+1
+	lda #$f0 : sta (zp_ptr)
+
+	; return success
+	sec
+	rts	
 .)
 
 

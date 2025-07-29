@@ -32,8 +32,6 @@
 #include "init.s"
 #include "print.s"
 #include "scheduler.s"
-#include "syscall.s"
-#include "error.s"
 
 #if *>$9000
 #error overflow
@@ -44,9 +42,12 @@ segment8freebytes = $9000-*
 
 .dsb $9400-*,0
 
+#include "syscall.s"
+#include "error.s"
 #include "mm.s"
 #include "serialfs.s"
 #include "serialio.s"
+#include "video.s"
 
 #if *>$a000
 #error overflow

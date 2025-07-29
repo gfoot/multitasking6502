@@ -1,6 +1,6 @@
 .(
 
-zp_scratch = $18
+zp_scratch = $88
 
 
 &printhex:
