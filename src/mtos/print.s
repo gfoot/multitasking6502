@@ -36,10 +36,11 @@ loop:
 .(
 
 &printchar:
-.(
 	; Print the character in A
 	jsr video_putchar
 
+&serial_putchar:
+.(
 	pha
 
 	; wait for TDR empty, by waiting for T2 to expire

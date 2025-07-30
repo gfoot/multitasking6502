@@ -20,25 +20,36 @@ serialfs_load_imm:
 	stx zp_addr
 	sty zp_addr+1
 	
-	lda #1 : jsr printchar
-	lda #'L' : jsr printchar
-	
 	tsx
 	clc
 	lda $101,x : adc #1 : sta zp_ptr
 	lda $102,x : adc #0 : sta zp_ptr+1
 
+	jsr printimm
+	.byte "serialfs: Loading ", 0
+
+	ldx zp_ptr
+	ldy zp_ptr+1
+	jsr printmsg
+
+	lda #13 : jsr printchar
+	lda #10 : jsr printchar
+
+	lda #1 : jsr serial_putchar
+	lda #'L' : jsr serial_putchar
+	
 loop:
 	lda (zp_ptr) : beq loopend
-	jsr printchar
+	jsr serial_putchar
 	inc zp_ptr : bne loop
 	inc zp_ptr+1 : bra loop
 loopend:
 
+	tsx
 	lda zp_ptr : sta $101,x
 	lda zp_ptr+1 : sta $102,x
 
-	lda #2 : jsr printchar
+	lda #2 : jsr serial_putchar
 
 	; We expect a series of "2" (load) commands, then a "0" (end) command.
 cmdloop:
@@ -52,7 +63,7 @@ loaddata:
 	; should do it before echoing back the load command (2) otherwise the server will start
 	; sending data before we're ready.
 	
-	jsr printchar    ; echo back the command code (2)
+	jsr serial_putchar    ; echo back the command code (2)
 
 	ldy #0
 	stz zp_checksum : stz zp_checksum+1
@@ -65,14 +76,14 @@ loaddataloop:
 	iny
 	bne loaddataloop
 
-	lda zp_checksum : jsr printchar
-	lda zp_checksum+1 : jsr printchar
+	lda zp_checksum : jsr serial_putchar
+	lda zp_checksum+1 : jsr serial_putchar
 
 	inc zp_addr+1
 	bra cmdloop
 
 done:
-	jsr printchar    ; echo back the command code (0)
+	jsr serial_putchar    ; echo back the command code (0)
 
 	lda zp_pp
 	ldx zp_addr
