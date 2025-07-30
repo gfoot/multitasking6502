@@ -323,7 +323,7 @@ testfail:
 testcomplete:
 
 	jsr printimm
-	.byte 9,"OK",13,10,0
+	.byte 9,9,9,9,9,9,"OK",13,10,0
 
 	rts
 .)
