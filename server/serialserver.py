@@ -24,6 +24,25 @@ if True:
 		"boot002": (0x8800, 0x8800, "kernel"),
 	}
 
+if False:
+	cmds = {
+		"boot001": None,
+		"boot002": (0x8800, 0x8800, "kernel"),
+	}
+
+if False:
+	cmds = {
+		"boot001": (0x0200, 0x0200, "bootchain"),
+		"boot002": None,
+	}
+
+if False:
+	cmds = {
+		"boot001": None,
+		"boot002": None,
+	}
+
+
 
 def usage():
 	print("Usage: %s <device> <baud>" % sys.argv[0])
@@ -123,6 +142,9 @@ def cmd_execute():
 	log(2, "cmd_execute()")
 	cmd_start(3)
 
+def cmd_notfound():
+	log(2, "cmd_notfound()")
+	cmd_start(4)
 
 
 def load_file_at_addr(address, filename):
@@ -153,6 +175,10 @@ def go(address):
 	log(1, "Go to %04x" % address)
 	cmd_address(address)
 	cmd_execute()
+
+def notfound():
+	log(1, "Not found")
+	cmd_notfound()
 
 
 def serialconsole():
@@ -191,7 +217,9 @@ def serialconsole():
 						elif command_in_progress:
 							command.append(chr(b))
 						elif not command_in_progress:
-							if b < 128:
+							if b == 9:
+								print("\x1b[C", end="", flush=True)
+							elif b < 128:
 								print(chr(b), end="", flush=True)
 								outfile.write(chr(b))
 							else:
@@ -209,9 +237,12 @@ def runcommand(command):
 	log(1, "Command: %s" % command)
 
 	if command in cmds:
-		loadaddr, execaddr, name = cmds[command]
-		load_file_at_addr(loadaddr, "../bin/apps/%s.bin" % name)
-		go(execaddr)
+		if cmds[command] is None:
+			notfound()
+		else:
+			loadaddr, execaddr, name = cmds[command]
+			load_file_at_addr(loadaddr, "../bin/apps/%s.bin" % name)
+			go(execaddr)
 	elif command.startswith("L"):
 		name = command[1:]
 		load_file("../bin/apps/%s.bin" % name)

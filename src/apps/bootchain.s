@@ -1,11 +1,12 @@
-; Stage 1.5 bootloader, which lives in paged RAM and just loads the true second stage into private RAM
+; Stage 1 bootloader
+;
+; Lives in paged RAM
+; Disables ROM and checks private RAM is working
+; Loads Stage 2 into private RAM, from serial or from ROM
 
-#include "defs.s"
+#include "utils/bootdefs.s"
 
 zp_ptr = $00
-printptr = $80
-videoprintptr = $82
-videoprintdisable = $84
 
 * = $200
 
@@ -18,13 +19,10 @@ entry:
 	ldy VIA_PORTANH
 	lda #$f0 : sta $f000,y : sta $f100,y
 
-	; Initialise video text output
-	lda #$00 : sta videoprintptr
-	lda #$72 : sta videoprintptr+1
-	stz videoprintdisable
+	jsr printinit
 
 	jsr printimm
-	.byte "Stage 1.5",13,10,0
+	.byte 13,10,"Stage 1",13,10,0
 
 	ldy VIA_PORTANH
 	lda $8000,y
@@ -55,7 +53,7 @@ nowarning:
 	jsr privateramtest
 
 	jsr printimm
-	.byte "Loading second stage...",13,10,0
+	.byte 13,10,"Loading second stage...",13,10,0
 
 	; Disable video display output during loading
 	dec videoprintdisable
@@ -71,7 +69,16 @@ cmdloop:
 	dec : beq readaddr
 	dec : beq loaddata
 	dec : beq execute
+	dec : beq notfound
 	bra bootloop
+
+readaddr:
+	; Read an address and store it at 0,1
+	jsr getchar : sta 0
+	jsr getchar : sta 1
+	lda 0 : jsr printchar
+	lda 1 : jsr printchar
+	bra cmdloop
 
 loaddata:
 	ldy #0
@@ -104,20 +111,48 @@ execute:
 	lda #3 : sta VIA_DDRB : sta VIA_PORTB
 	jmp (0)
 
+notfound:
+	; If stage 2 wasn't supplied by serial, use the embedded one
 
-readaddr:
-	; Read an address and store it at 0,1
-	jsr getchar : sta 0
-	jsr getchar : sta 1
-	lda 0 : jsr printchar
-	lda 1 : jsr printchar
-	bra cmdloop
+	inc videoprintdisable
+
+	jsr printimm
+	.byte "Loading Stage 2 from ROM",13,10,0
+
+	; Re-enable the ROM
+	stz VIA_PORTB
+
+	; Loop over the kernel's footprint in ROM, rewriting it to populate the private RAM
+	; This will also overwrite some pagetable entries but nothing critical so long as we stop at $f000
+	kernel_start = $8800
+	kernel_end = $f000
+
+	lda #<kernel_start : sta 0
+	lda #>kernel_start : sta 1
+	ldx #>kernel_end
+
+	ldy #0
+copykernelloop:
+	lda (0),y : sta (0),y
+	iny
+	bne copykernelloop
+	inc 1
+	cpx 1
+	bne copykernelloop
+
+	; Disable the ROM again
+	lda #1 : sta VIA_PORTB
+
+	jsr printimm
+	.byte "Starting Stage 2",13,10,0
+
+	jmp kernel_start
 
 
 privateramtest:
 .(
 	jsr printimm
-	.byte "Checking private RAM works... ",0
+	.byte "Testing private RAM... ",0
 
 	; The upper 32K minus the 1K I/O region at $8400-$87FF is private RAM or pagetable - we can test them both.
 	; So we want to test $8000-$83FF, and $8800-$FFFF.  To make things easier we will loop over all addresses
@@ -191,127 +226,8 @@ printregs:
 .)
 
 
-video_printchar:
-.(
-	bit videoprintdisable : bmi skip
-	cmp #13 : beq cr
-	cmp #10 : beq nl
+#include "utils/bootprint.s"
 
-	sta (videoprintptr)
-
-	inc videoprintptr
-skip:
-	rts
-
-cr:
-	lda videoprintptr : and #$80 : sta videoprintptr
-	lda #13
-	rts
-
-nl:
-	clc
-	lda videoprintptr : adc #$80 : sta videoprintptr
-	lda videoprintptr+1 : adc #0 : sta videoprintptr+1
-	lda #10
-	rts
-.)
-
-
-&printchar:
-	jsr video_printchar
-
-&serial_printchar:
-.(
-	pha
-
-	; wait for TDR empty, by waiting for T2 to expire
-	lda #$20
-wait:
-	bit VIA_IFR : beq wait
-
-	; Write the character and restart T2
-	pla
-	sta ACIA_DATA
-	stz VIA_T2CH
-
-	rts
-.)
-
-
-&getchar:
-	; Wait for RDR full
-	lda ACIA_STAT : and #8 : beq getchar
-
-	; Read the character
-	lda ACIA_DATA
-
-	rts
-
-&printimm:
-	pha : phx : phy
-
-	tsx
-	clc
-	lda $104,x : adc #1 : sta printptr
-	lda $105,x : adc #0 : sta printptr+1
-
-	jsr printmsgloop
-
-	lda printptr : sta $104,x
-	lda printptr+1 : sta $105,x
-
-	ply : plx : pla
-	rts
-
-&printmsg:
-	stx printptr
-	sty printptr+1
-
-printmsgloop:
-	ldy #0
-	lda (printptr),y
-	beq endprintmsgloop
-	jsr printchar
-	inc printptr
-	bne printmsgloop
-	inc printptr+1
-	bra printmsgloop
-
-endprintmsgloop:
-	rts
-
-&printhex:
-	pha
-	ror : ror : ror : ror
-	jsr printnybble
-	pla
-&printnybble:
-.(
-	pha
-	and #15
-	cmp #10
-	bmi skipletter
-	adc #6
-skipletter:
-	adc #48
-	jsr printchar
-	pla
-	rts
-.)
-
-&printspace:
-	pha
-	lda #' '
-	jsr printchar
-	pla
-	rts
-
-&printnewline:
-	jsr printimm
-	.byte 13,10,0
-	rts
-
-
-top:
-#print top-entry
+headroom = $1000-*
+#print headroom
 
