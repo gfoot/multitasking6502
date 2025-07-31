@@ -20,10 +20,22 @@ video_init:
 	; Map video memory at LPVID
 	lda #$f0 : sta PT_LPVW : sta PT_LPVR
 	
-	jsr video_clearscreen
+	; YYXX contains the bootup system's video output pointer - check it's sensible 
+	; and use it if so
+	cpx #80 : bcc bootposok
+	cpx #$80 : bcc bootposnotok
+	cpx #$80+80 : bcc bootposok
 
-	stz zp_video_cursoraddr
-	lda #>LPVID : sta zp_video_cursoraddr+1
+bootposnotok:
+	jsr video_clearscreen
+	ldx #0 : ldy #0
+
+bootposok:
+	; Force the high byte into the right logical page in case it differs
+	tya : and #$0f : ora #>LPVID
+
+	stx zp_video_cursoraddr
+	sta zp_video_cursoraddr+1
 
 	pla
 	rts

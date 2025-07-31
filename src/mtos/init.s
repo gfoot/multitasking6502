@@ -12,6 +12,9 @@ init:
 
 	sei : cld : ldx #$ff : txs
 
+	; Grab the boot system's video output pointer before changing the paging
+	ldx $82 : ldy $83
+
 	; ROM is no longer mapped, and LP 0 should be mapped to some RAM, but let's do that again to make sure.
 	stz VIA_PORTANH   ; set PID=0
 	stz PT_LP0W       ; map PID 0 LP0 writes to PP0
@@ -21,61 +24,6 @@ init:
 
 	jsr printimm
 	.byte 13,10,"mtos kernel starting",13,10,0
-
-#if 0
-
-	; Draw a rectangle, 256x240 pixels
-	WIDTH = 64
-	lda #<(LPVID+(80-WIDTH)/2) : sta zp_ptr
-	lda #>(LPVID+(80-WIDTH)/2) : sta zp_ptr+1
-	ldx #30
-loop2:
-	ldy #WIDTH-1
-	lda #$db  ; solid white block
-loop3:
-	sta (zp_ptr),y
-	dey
-	bpl loop3
-	clc
-	lda zp_ptr : adc #$80 : sta zp_ptr
-	lda zp_ptr+1 : adc #0 : sta zp_ptr+1
-	dex
-	bne loop2
-
-	; loop forever writing to private RAM
-	lda #0
-loop:
-	sta LPVID;zp_ptr;PT_LP3W
-	eor #$ff
-	bra loop
-
-#endif
-
-#if 0
-	; write the bottom half of the screen with white
-	lda #<(LPVID+15*128) : sta zp_ptr
-	lda #>(LPVID+15*128) : sta zp_ptr+1
-	ldx #15
-loop2:
-	ldy #79
-	lda #$db  ; solid white block
-loop3:
-	sta (zp_ptr),y
-	dey
-	bpl loop3
-	clc
-	lda zp_ptr : adc #$80 : sta zp_ptr
-	lda zp_ptr+1 : adc #0 : sta zp_ptr+1
-	dex
-	bne loop2
-
-	; loop forever writing to private RAM
-	lda #0
-loop:
-	sta LPVID;zp_ptr;PT_LP3W
-	eor #$ff
-	bra loop
-#endif
 
 	; Enable ACIA receive interrupts
 	lda #9 : sta ACIA_CMD
@@ -97,6 +45,8 @@ loop:
 
 	jsr mm_init
 	jsr scheduler_init
+
+	jsr printnewline
 
 	jsr debugspawnprocess
 	jsr debugspawnprocess

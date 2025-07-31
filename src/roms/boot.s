@@ -20,11 +20,11 @@ entry:
 
 	; Initialise the VIA
 
-	; Port A - all outputs, initially $55
-	lda #$55 : sta VIA_PORTANH
+	; Port A - all outputs, initially 0 (PID)
+	lda #$00 : sta VIA_PORTANH
 	lda #$ff : sta VIA_DDRA
 
-	; Port B - bit 0 is an output, initially low
+	; Port B - bit 0 is an output, initially low (inverted ROMEN)
 	stz VIA_PORTB
 	lda #1 : sta VIA_DDRB
 
@@ -44,6 +44,31 @@ entry:
 	; Initialise the ACIA
 	lda #$0b : sta ACIA_CMD    ; no parity, interrupts off, RTS asserted
 	lda #$1e : sta ACIA_CTRL   ; 9600 8-x-1
+
+
+	; Map video memory to page 7 read and write
+	ldy VIA_PORTANH
+	lda #$f0 : sta $f000,y : sta $f100,y
+
+	; Wipe all video memory
+	ldy #0 : tya
+clearscreenloop:
+	sta $7000,y : sta $7100,y : sta $7200,y : sta $7300,y
+	sta $7400,y : sta $7500,y : sta $7600,y : sta $7700,y
+	sta $7800,y : sta $7900,y : sta $7a00,y : sta $7b00,y
+	sta $7c00,y : sta $7d00,y : sta $7e00,y : sta $7f00,y
+	iny
+	bne clearscreenloop
+
+	; Copy welcome message to video memory
+	ldy #welcomemsg_end-welcomemsg_start-1
+welcomemsgloop:
+	lda welcomemsg_start,y
+	sta $7000,y
+	lda welcomemsg2_start,y
+	sta $7100,y
+	dey
+	bpl welcomemsgloop
 
 
 	; Print the first message
@@ -118,8 +143,6 @@ bootmsg_failed_start:
 bootmsg_failed_end:
 
 
-
-
 loadsecondstage:
 	jsr printimm
 	.byte "Loading second stage...",13,10,0
@@ -168,6 +191,12 @@ readaddr:
 	lda 1 : jsr printchar
 	bra cmdloop
 
+
+welcomemsg_start:
+	.byte "gfoot's multitasking computer bootstrap ROM"
+welcomemsg_end:
+welcomemsg2_start:
+	.byte "Loading from serial...                     "
 
 
 &printchar:

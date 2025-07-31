@@ -4,6 +4,8 @@
 
 zp_ptr = $00
 printptr = $80
+videoprintptr = $82
+videoprintdisable = $84
 
 * = $200
 
@@ -11,6 +13,15 @@ entry:
 	; Disable the ROM now
 	lda #1
 	sta VIA_PORTB
+
+	; Map video memory to page 7 read and write
+	ldy VIA_PORTANH
+	lda #$f0 : sta $f000,y : sta $f100,y
+
+	; Initialise video text output
+	lda #$00 : sta videoprintptr
+	lda #$72 : sta videoprintptr+1
+	stz videoprintdisable
 
 	jsr printimm
 	.byte "Stage 1.5",13,10,0
@@ -36,12 +47,18 @@ warning:
 	; for now.
 	stx $8000 : stx $8100 : stz VIA_PORTANH
 
+	; May need to remap video memory too in that case
+	lda #$f0 : sta $f000 : sta $f100
+
 nowarning:
 
 	jsr privateramtest
 
 	jsr printimm
 	.byte "Loading second stage...",13,10,0
+
+	; Disable video display output during loading
+	dec videoprintdisable
 
 bootloop:
 	jsr printimm
@@ -164,7 +181,6 @@ testcomplete:
 
 	rts
 
-
 printregs:
 	pha
 	jsr printhex : jsr printspace
@@ -175,7 +191,36 @@ printregs:
 .)
 
 
+video_printchar:
+.(
+	bit videoprintdisable : bmi skip
+	cmp #13 : beq cr
+	cmp #10 : beq nl
+
+	sta (videoprintptr)
+
+	inc videoprintptr
+skip:
+	rts
+
+cr:
+	lda videoprintptr : and #$80 : sta videoprintptr
+	lda #13
+	rts
+
+nl:
+	clc
+	lda videoprintptr : adc #$80 : sta videoprintptr
+	lda videoprintptr+1 : adc #0 : sta videoprintptr+1
+	lda #10
+	rts
+.)
+
+
 &printchar:
+	jsr video_printchar
+
+&serial_printchar:
 .(
 	pha
 
