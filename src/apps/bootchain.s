@@ -108,7 +108,6 @@ ok2:
 	bra cmdloop
 
 execute:
-	lda #3 : sta VIA_DDRB : sta VIA_PORTB
 	jmp (0)
 
 notfound:
