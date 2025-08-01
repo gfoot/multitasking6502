@@ -7,40 +7,38 @@ import tty
 
 
 
-if False:
-	cmds = {
-		"boot001": (0x0200, 0x0200, "bootchain"),
-		"boot002": (0x8800, 0x8800, "boottesthi"),
-	}
+#cmds = {
+#	"boot001": (0x0200, 0x0200, "bootflash"),
+#}
 
-if False:
-	cmds = {
-		"boot001": (0x0200, 0x0200, "boottest"),
-	}
+# cmds = {
+#	"boot001": (0x0200, 0x0200, "bootchain"),
+#	"boot002": (0x8800, 0x8800, "boottesthi"),
+#}
 
-if True:
-	cmds = {
-		"boot001": (0x0200, 0x0200, "bootchain"),
-		"boot002": (0x8800, 0x8800, "kernel"),
-	}
+#cmds = {
+#	"boot001": (0x0200, 0x0200, "boottest"),
+#}
 
-if False:
-	cmds = {
-		"boot001": None,
-		"boot002": (0x8800, 0x8800, "kernel"),
-	}
+#cmds = {
+#	"boot001": (0x0200, 0x0200, "bootchain"),
+#	"boot002": (0x8800, 0x8800, "kernel"),
+#}
 
-if False:
-	cmds = {
-		"boot001": (0x0200, 0x0200, "bootchain"),
-		"boot002": None,
-	}
+#cmds = {
+#	"boot001": None,
+#	"boot002": (0x8800, 0x8800, "kernel"),
+#}
 
-if False:
-	cmds = {
-		"boot001": None,
-		"boot002": None,
-	}
+#cmds = {
+#	"boot001": (0x0200, 0x0200, "bootchain"),
+#	"boot002": None,
+#}
+
+cmds = {
+	"boot001": None,
+	"boot002": None,
+}
 
 
 
@@ -67,6 +65,12 @@ for switch in switches:
 			continue
 		if c == 'v':
 			LOGLEVEL += 1
+			continue
+		if c == 'F':
+			cmds = {
+				"boot001": (0x0200, 0x0200, "bootflash"),
+				"romimage": (0, 0x8000, "../bin/roms/boot.rom"),
+			}
 			continue
 		print("Bad switch '%s'" % c)
 		usage()
@@ -241,7 +245,9 @@ def runcommand(command):
 			notfound()
 		else:
 			loadaddr, execaddr, name = cmds[command]
-			load_file_at_addr(loadaddr, "../bin/apps/%s.bin" % name)
+			if not name.startswith(".."):
+				name = "../bin/apps/%s.bin" % name
+			load_file_at_addr(loadaddr, name)
 			go(execaddr)
 	elif command.startswith("L"):
 		name = command[1:]
