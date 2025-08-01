@@ -10,11 +10,28 @@ printinit:
 	stz videoprintdisable
 	rts
 
+video_printchar_raw:
+.(
+	pha
+	sta (videoprintptr)
+	inc videoprintptr
+	lda videoprintptr
+	cmp #80
+	beq scroll
+	cmp #80+$80
+	beq scroll
+	pla
+	rts
+scroll:
+	pla
+	jmp video_scroll
+.)
+
 video_printchar:
 .(
 	bit videoprintdisable : bmi skip
 	cmp #13 : beq cr
-	cmp #10 : beq nl
+	cmp #10 : beq video_scroll
 
 	sta (videoprintptr)
 
@@ -26,8 +43,10 @@ cr:
 	lda #$80 : sta videoprintptr
 	lda #13
 	rts
+.)
 
-nl:
+video_scroll:
+.(
 	phy
 
 	lda #$70 : sta videoprintptr+1 : sta videoprintptr2+1
