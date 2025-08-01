@@ -49,9 +49,9 @@ entry:
 	stz VIA_PORTANH
 	lda #$ff : sta VIA_DDRA
 
-	; Port B - bit 0 is an output, initially low (inverted ROMEN)
+	; Port B - bit 0 and 1 are outputs, initially low (inverted ROMEN, and ROMW)
 	stz VIA_PORTB
-	lda #1 : sta VIA_DDRB
+	lda #3 : sta VIA_DDRB
 
 	; T2CL - set T2 to count down from 10*16
 	lda #160 : sta VIA_T2CL : stz VIA_T2CH
