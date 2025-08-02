@@ -248,13 +248,13 @@ notbootloader:
 	lda #2 : sta VIA_PORTB
 
 	; Execute the temporary unprotect sequence
-	lda #$aa : sta $d555   ; cycle 0
-	lda #$55 : sta $aaaa   ; cycle 6
-	lda #$a0 : sta $d555   ; cycle 12
+	lda #$aa : sta $d555
+	lda #$55 : sta $aaaa   ; 6 cycles since previous write
+	lda #$a0 : sta $d555   ; 6 cycles since previous write
 
 	; Write all the data
 byteloop:
-	lda (zp_readptr),y : sta (zp_writeptr),y
+	lda (zp_readptr),y : sta (zp_writeptr),y    ; 11 or 18 cycles since previous write
 	iny
 	dex
 	bne byteloop
